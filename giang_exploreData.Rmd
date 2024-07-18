@@ -1,0 +1,23 @@
+---
+title: "giang_exploreData"
+author: "Giang"
+date: "2024-07-17"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+library(tidyverse)
+library(ggplot2) 
+library(gtsummary)
+
+setwd("C:/Users/giang/OneDrive/Desktop/data_science_COSMOS/myopia")
+
+my_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
+
+glimpse(my_data)
+```
+
+
