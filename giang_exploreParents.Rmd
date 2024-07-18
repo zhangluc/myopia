@@ -1,0 +1,124 @@
+---
+title: "giang_exploreData"
+author: "Giang"
+date: "2024-07-17"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+library(tidyverse)
+library(ggplot2) 
+library(dplyr)
+library(gtsummary)
+
+setwd("C:/Users/giang/OneDrive/Desktop/data_science_COSMOS/myopia")
+
+my_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
+
+glimpse(my_data)
+
+```
+
+```{r}
+
+class(my_data$MYOPIC)
+unique(my_data$MYOPIC)
+
+my_data <- my_data %>% 
+  mutate(mommy_int = as.integer(MOMMY), dadmy_int = as.integer(DADMY))
+glimpse(my_data)
+
+my_data <- my_data %>% 
+  mutate(MYOPIC = case_when(MYOPIC == 1 ~ "Yes", 
+                            MYOPIC == 0 ~ "No"))
+
+my_data <- my_data %>% 
+  mutate(GENDER = case_when(GENDER == 1 ~ "M", 
+                            GENDER == 0 ~ "F"))
+
+my_data <- my_data %>% 
+  mutate(MOMMY = case_when(MOMMY == 1 ~ "Yes", 
+                           MOMMY == 0 ~ "No"))
+my_data <- my_data %>% 
+  mutate(DADMY = case_when(DADMY == 1 ~ "Yes", 
+                           DADMY == 0 ~ "No"))
+
+my_data <- my_data %>% 
+  mutate(MYOPIC = as.factor(MYOPIC), GENDER = as.factor(GENDER), 
+         MOMMY = as.factor(MOMMY), DADMY = as.factor(DADMY))
+         
+glimpse(my_data)
+
+```
+
+```{r}
+
+my_data <- my_data %>% 
+  mutate(PARENTS = mommy_int + dadmy_int) %>% 
+  mutate(parents_int = as.integer(PARENTS))
+
+my_data <- my_data %>% 
+  mutate(PARENTS = case_when(PARENTS == 0 ~ "neither myopic",
+                            PARENTS == 1 ~ "one myopic",
+                            PARENTS == 2 ~ "both myopic"))
+my_data <- my_data %>% 
+  mutate(PARENTS = as.factor(PARENTS))
+
+my_data <- my_data %>% 
+  character(my_data$PARENTS, levels = c("neither myopic", "one myopic", "both myopic"))
+
+print(my_data$PARENTS)
+glimpse(my_data)
+
+```
+
+```{r}
+
+ggplot(data = my_data, 
+       aes(x = MOMMY, 
+           fill = MYOPIC)) + 
+  geom_bar() +
+  labs(x = "Mother's Myopic Status", 
+       fill = "Participant's Myopic Status") +
+coord_flip()
+
+```
+
+```{r}
+
+ggplot(data = my_data, 
+       aes(x = DADMY, 
+           fill = MYOPIC)) + 
+  geom_bar() +
+  labs(x = "Father's Myopic Status", 
+       fill = "Participant's Myopic Status") +
+coord_flip()
+
+```
+
+```{r}
+
+#have x axis ordered by neither myopic, one myopic, and both myopic 
+#find percentages of each to compare 
+#do chi-squared test and p-value
+
+ggplot(data = my_data, 
+       aes(x = PARENTS, 
+           fill = MYOPIC)) + 
+  geom_bar() + 
+  labs(x = "Parents' Myopic Status", 
+       fill = "Participant's Myopic Status")
+
+```
+
+```{r}
+
+count(my_data, MYOPIC, MOMMY, DADMY, PARENTS)
+
+unique(my_data$PARENTS)
+
+```
+
