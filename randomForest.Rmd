@@ -1,0 +1,16 @@
+---
+title: "randomForestTest"
+author: "Luke Owyang"
+date: "2024-07-19"
+output: html_document
+---
+
+```
+{r echo=TRUE}
+library(tidyverse)
+library(ggplot2)
+
+data <- read.csv('myopia_og.csv', sep=";", header=TRUE)
+head(data)
+```
+
