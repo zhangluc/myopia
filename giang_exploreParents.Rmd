@@ -29,6 +29,9 @@ class(my_data$MYOPIC)
 unique(my_data$MYOPIC)
 
 my_data <- my_data %>% 
+  mutate(myopic = MYOPIC)
+
+my_data <- my_data %>% 
   mutate(mommy_int = as.integer(MOMMY), dadmy_int = as.integer(DADMY))
 glimpse(my_data)
 
@@ -116,9 +119,6 @@ chisq.test(parents_table)
 
 ```{r}
 
-#PERCENTAGES ARE WRONG SOMEHOW??? CHECK ROWS??
-#find better names to sort & calculate all other conditions
-
 library(dplyr)
 
 PARENTS <- my_data$PARENTS
@@ -173,21 +173,12 @@ filter_BM_Y <- nrow(BM_Y_df)
 percentage_BM_Y <- ((filter_BM_Y / total_count) * 100)
   round(percentage_BM_Y, 2)
 #5.66
-  
-par_df
-fil_par_df
 
 ``` 
 
 ```{r}
 
-my_data <- my_data %>% 
-  mutate(myopic = case_when(MYOPIC == "Yes" ~ 1, 
-                            MYOPIC == "No" ~ 0))
-
-my_data <- my_data %>% 
-  mutate(parents_fct = as.factor(parents_int), myopic = as.factor(myopic))
-glimpse(my_data)
+str(my_data$myopic)
 
 log_model <- glm(myopic ~ PARENTS, data = my_data)
 summary(log_model)
