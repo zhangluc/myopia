@@ -45,3 +45,5 @@ print(confusion_matrix)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", accuracy))
 
+0.00537634408602151
+0.00537634408602151
