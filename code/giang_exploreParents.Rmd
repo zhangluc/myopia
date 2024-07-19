@@ -25,6 +25,8 @@ glimpse(my_data)
 
 ```{r}
 
+#just mutating/recategorizing variables
+
 class(my_data$MYOPIC)
 unique(my_data$MYOPIC)
 
@@ -53,13 +55,7 @@ my_data <- my_data %>%
 my_data <- my_data %>% 
   mutate(MYOPIC = as.factor(MYOPIC), GENDER = as.factor(GENDER), 
          MOMMY = as.factor(MOMMY), DADMY = as.factor(DADMY))
-         
-glimpse(my_data)
-
-```
-
-```{r}
-
+        
 my_data <- my_data %>% 
   mutate(PARENTS = mommy_int + dadmy_int) %>% 
   mutate(parents_int = as.integer(PARENTS))
@@ -79,16 +75,14 @@ glimpse(my_data)
 
 ```{r}
 
+#basic bar graphs examining mom's and dad's myopic status respectively
+
 ggplot(data = my_data, 
        aes(x = MOMMY, 
            fill = MYOPIC)) + 
   geom_bar() +
   labs(x = "Mother's Myopic Status", 
        fill = "Participant's Myopic Status") 
-
-```
-
-```{r}
 
 ggplot(data = my_data, 
        aes(x = DADMY, 
@@ -101,7 +95,8 @@ ggplot(data = my_data,
 
 ```{r}
 
-#find percentages of each to compare 
+#bar graph displaying both parents' myopic status in relation to their child's
+#ran chi-squared test - SMOL p-value
 
 ggplot(data = my_data, 
        aes(x = PARENTS, 
@@ -119,6 +114,8 @@ chisq.test(parents_table)
 
 ```{r}
 
+#percentages of each subset in the sample poulation
+
 library(dplyr)
 
 PARENTS <- my_data$PARENTS
@@ -130,53 +127,67 @@ conditionOM <- "one myopic"
 conditionBM <- "both myopic"
 conditionY <- "Yes"
 conditionN <- "No"
+
 total_count <- nrow(par_df)
+
+neither_df <- par_df %>% 
+  filter(PARENTS == conditionNM)
+filter_neither <- nrow(neither_df)
+one_df <- par_df %>% 
+  filter(PARENTS == conditionOM)
+filter_one <- nrow(one_df)
+both_df <- par_df %>% 
+  filter(PARENTS == conditionBM) 
+filter_both <- nrow(both_df)
 
 NM_N_df <- par_df %>% 
   filter(PARENTS == conditionNM & MYOPIC == conditionN)
 filter_NM_N <- nrow(NM_N_df)
 percentage_NM_N <- ((filter_NM_N / total_count) * 100)
   round(percentage_NM_N, 2)
-#23.79
+#23.79% non-myopic with neither myopic parents in entire population
+
 
 OM_N_df <- par_df%>% 
   filter(PARENTS == conditionOM & MYOPIC == conditionN)
 filter_OM_N <- nrow(OM_N_df)
 percentage_OM_N <- ((filter_OM_N / total_count) * 100)
   round(percentage_OM_N, 2)
-#43.69
+#43.69% non-myopic with one myopic parent in entire population
 
 BM_N_df <- par_df%>% 
   filter(PARENTS == conditionBM & MYOPIC == conditionN)
 filter_BM_N <- nrow(BM_N_df)
 percentage_BM_N <- ((filter_BM_N / total_count) * 100)
   round(percentage_BM_N, 2)
-#19.42
+#19.42% non-myopic with both myopic parent in entire population
   
 NM_Y_df <- par_df %>% 
   filter(PARENTS == conditionNM & MYOPIC == conditionY)
 filter_NM_Y <- nrow(NM_Y_df)
 percentage_NM_Y <- ((filter_NM_Y / total_count) * 100)
   round(percentage_NM_Y, 2)
-#0.81
+#0.81% myopic with neither myopic parents in entire population
   
 OM_Y_df <- par_df%>% 
   filter(PARENTS == conditionOM & MYOPIC == conditionY)
 filter_OM_Y <- nrow(OM_Y_df)
 percentage_OM_Y <- ((filter_OM_Y / total_count) * 100)
   round(percentage_OM_Y, 2)
-#6.63
+#6.63% myopic with one myopic parent in entire population
   
 BM_Y_df <- par_df%>% 
   filter(PARENTS == conditionBM & MYOPIC == conditionY)
 filter_BM_Y <- nrow(BM_Y_df)
 percentage_BM_Y <- ((filter_BM_Y / total_count) * 100)
   round(percentage_BM_Y, 2)
-#5.66
+#5.66% myopic with both myopic parents in entire population 
 
 ``` 
 
 ```{r}
+
+#logistic regression model - parents' myopic status (response variable), participants' myopic status (explanatory variable)
 
 str(my_data$myopic)
 
