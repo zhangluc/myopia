@@ -1,0 +1,177 @@
+---
+title: "XG_boost"
+author: "Giang"
+date: "2024-07-22"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+library(xgboost)
+library(tidyverse)
+library(caret)
+library(data.table)
+
+setwd("C:/Users/giang/OneDrive/Desktop/data_science_COSMOS/myopia")
+
+```
+
+```{r}
+
+my_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
+
+my_data <- my_data %>% 
+  mutate(MYOPIC = as.factor(MYOPIC))
+
+my_data$PARENTS <- my_data$MOMMY + my_data$DADMY
+my_data <- my_data %>%  
+  mutate(PARENTS = as.factor(PARENTS))
+
+my_data$MOMMY <- NULL
+my_data$DADMY <- NULL
+
+my_data <- my_data %>% 
+  filter(AGE != 9)
+
+glimpse(my_data)
+```
+
+
+RANDOM FOREST ON XG BOOST
+```{r}
+
+# Setting the seed for reproducibility
+set.seed(0)
+
+# Split into training and testing sets
+my_trainIndex <- createDataPartition(my_data$MYOPIC, p = 0.8, list = FALSE)
+trainData <- my_data[my_trainIndex, ]
+testData <- my_data[-my_trainIndex, ]
+
+# Convert data.table to data.frame to avoid data.table-specific issues
+trainData <- as.data.frame(trainData)
+testData <- as.data.frame(testData)
+
+# Detect character columns and convert them to factors, then to numeric
+char_cols <- sapply(trainData, is.character)
+for (col in names(char_cols[char_cols])) {
+  trainData[[col]] <- as.numeric(as.factor(trainData[[col]]))
+  testData[[col]] <- as.numeric(as.factor(testData[[col]]))
+}
+
+# Ensure all columns are numeric. We use sapply to convert any residual non-numeric columns
+trainData <- as.data.frame(sapply(trainData, as.numeric))
+testData <- as.data.frame(sapply(testData, as.numeric))
+
+# Separate features and target
+trainLabel <- trainData$MYOPIC
+testLabel <- testData$MYOPIC
+trainData <- trainData[, setdiff(names(trainData), "MYOPIC")]
+testData <- testData[, setdiff(names(testData), "MYOPIC")]
+
+# Convert features to numeric matrices
+train_feats <- as.matrix(trainData)
+test_feats <- as.matrix(testData)
+
+# Convert to XGBoost DMatrix format
+dtrain <- xgb.DMatrix(data = train_feats, label = as.numeric(trainLabel) - 1)
+dtest <- xgb.DMatrix(data = test_feats, label = as.numeric(testLabel) - 1)
+
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss",
+  max_depth = 6,  # Depth of the tree
+  eta = 0.3,      # Learning rate
+  nthread = 2
+)
+
+model <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = 100,  # Number of boosting rounds
+  watchlist = list(train = dtrain, test = dtest),
+  early_stopping_rounds = 10  # Early stopping if no improvement
+)
+
+# Predict on test data
+pred <- predict(model, newdata = dtest)
+
+# Convert probabilities to class labels
+pred_labels <- ifelse(pred > 0.5, 1, 0)
+
+confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
+
+```
+
+
+TRYING TO FIND VARIABLE IMPORTANTANCE - STILL FUNKY 
+```{r}
+
+myopia_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
+
+myopia_data <- myopia_data %>% 
+  mutate(MYOPIC = as.factor(MYOPIC))
+
+myopia_data$PARENTS <- myopia_data$MOMMY + myopia_data$DADMY
+myopia_data <- myopia_data %>%  
+  mutate(PARENTS = as.factor(PARENTS))
+
+myopia_data$MOMMY <- NULL
+myopia_data$DADMY <- NULL
+
+myopia_data <- myopia_data %>% 
+  filter(AGE != 9)
+
+# Prepare data
+
+myopia_data$MYOPIC <- as.factor(myopia_data$MYOPIC)
+myopia_data$MYOPIC <- as.numeric(myopia_data$MYOPIC) - 1
+
+glimpse(myopia_data)
+
+
+# Split the data into training and testing sets
+set.seed(0)
+train_indices <- sample(1:nrow(myopia_data), 0.7 * nrow(myopia_data))
+train_data <- myopia_data[train_indices,]
+test_data <- myopia_data[-train_indices,]
+
+# Convert data to matrix format for xgboost
+train_matrix <- as.matrix(train_data[ , -ncol(myopia_data)])  # Exclude target variable
+train_labels <- train_data$MYOPIC
+
+test_matrix <- as.matrix(test_data[ , -ncol(myopia_data)])  # Exclude target variable
+test_labels <- test_data$MYOPIC
+
+# Train the XGBoost model
+dtrain <- xgb.DMatrix(data = train_matrix, label = train_labels)
+dtest <- xgb.DMatrix(data = test_matrix, label = test_labels)
+
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss"
+)
+
+watchlist <- list(train = dtrain, eval = dtest)
+
+xgb_model <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = 100,
+  watchlist = watchlist,
+  verbose = 0
+)
+
+# Compute and plot variable importance
+importance_matrix <- xgb.importance(feature_names = colnames(train_matrix), model = xgb_model)
+print(importance_matrix)
+
+# Plot variable importance
+xgb.plot.importance(importance_matrix)
+
+```
+
+
+
