@@ -20,7 +20,7 @@ abline(h = 0, v = 0, lty = 3)
 model <- svm(MYOPIC ~ SPHEQ + SPORTHR, 
              data= mydata,
              type= "C-classification",
-             kernel = "linear",
+             kernel = "radial",
              scale = TRUE)
 
 summary(model)
