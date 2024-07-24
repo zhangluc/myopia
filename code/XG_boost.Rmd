@@ -13,6 +13,7 @@ library(xgboost)
 library(tidyverse)
 library(caret)
 library(data.table)
+library(pROC)
 
 setwd("C:/Users/giang/OneDrive/Desktop/data_science_COSMOS/myopia")
 
@@ -25,17 +26,11 @@ my_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
 my_data <- my_data %>% 
   mutate(MYOPIC = as.factor(MYOPIC))
 
-my_data$PARENTS <- my_data$MOMMY + my_data$DADMY
-my_data <- my_data %>%  
-  mutate(PARENTS = as.factor(PARENTS))
-
-my_data$MOMMY <- NULL
-my_data$DADMY <- NULL
-
 my_data <- my_data %>% 
   filter(AGE != 9)
 
 glimpse(my_data)
+
 ```
 
 
@@ -87,7 +82,7 @@ params <- list(
   nthread = 2
 )
 
-model <- xgb.train(
+xgb_model <- xgb.train(
   params = params,
   data = dtrain,
   nrounds = 100,  # Number of boosting rounds
@@ -96,82 +91,36 @@ model <- xgb.train(
 )
 
 # Predict on test data
-pred <- predict(model, newdata = dtest)
+pred <- predict(xgb_model, newdata = dtest)
 
 # Convert probabilities to class labels
-pred_labels <- ifelse(pred > 0.5, 1, 0)
+pred_labels <- ifelse(pred > 0.3, 1, 0)
+# adjusting threshold in predictions to raise spec: pred_labels <- ifelse(pred > 0.3, 1, 0) 
 
 confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
-
 ```
 
+```{r}
+# Calculate feature importance
+importance <- xgb.importance(model = xgb_model)
 
-TRYING TO FIND VARIABLE IMPORTANTANCE - STILL FUNKY 
+# Plot feature importance
+xgb.plot.importance(importance_matrix = importance)
+```
+
+BUILDING ROC CURVE 
 ```{r}
 
-myopia_data <- read.csv("data/myopia_org.csv", head = TRUE, sep = ";")
+# Compute ROC curve
+roc_curve <- roc(testLabel, pred)
 
-myopia_data <- myopia_data %>% 
-  mutate(MYOPIC = as.factor(MYOPIC))
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for XGBoost Model", col = "blue", lwd = 2)
 
-myopia_data$PARENTS <- myopia_data$MOMMY + myopia_data$DADMY
-myopia_data <- myopia_data %>%  
-  mutate(PARENTS = as.factor(PARENTS))
+# Add diagonal reference line (random classifier)
+abline(a = 0, b = 1, lty = 2, col = "gray")
 
-myopia_data$MOMMY <- NULL
-myopia_data$DADMY <- NULL
-
-myopia_data <- myopia_data %>% 
-  filter(AGE != 9)
-
-# Prepare data
-
-myopia_data$MYOPIC <- as.factor(myopia_data$MYOPIC)
-myopia_data$MYOPIC <- as.numeric(myopia_data$MYOPIC) - 1
-
-glimpse(myopia_data)
-
-
-# Split the data into training and testing sets
-set.seed(0)
-train_indices <- sample(1:nrow(myopia_data), 0.7 * nrow(myopia_data))
-train_data <- myopia_data[train_indices,]
-test_data <- myopia_data[-train_indices,]
-
-# Convert data to matrix format for xgboost
-train_matrix <- as.matrix(train_data[ , -ncol(myopia_data)])  # Exclude target variable
-train_labels <- train_data$MYOPIC
-
-test_matrix <- as.matrix(test_data[ , -ncol(myopia_data)])  # Exclude target variable
-test_labels <- test_data$MYOPIC
-
-# Train the XGBoost model
-dtrain <- xgb.DMatrix(data = train_matrix, label = train_labels)
-dtest <- xgb.DMatrix(data = test_matrix, label = test_labels)
-
-params <- list(
-  objective = "binary:logistic",
-  eval_metric = "logloss"
-)
-
-watchlist <- list(train = dtrain, eval = dtest)
-
-xgb_model <- xgb.train(
-  params = params,
-  data = dtrain,
-  nrounds = 100,
-  watchlist = watchlist,
-  verbose = 0
-)
-
-# Compute and plot variable importance
-importance_matrix <- xgb.importance(feature_names = colnames(train_matrix), model = xgb_model)
-print(importance_matrix)
-
-# Plot variable importance
-xgb.plot.importance(importance_matrix)
-
+# Add AUC (Area Under the Curve) to the plot
+text(0.75, 0.2, paste("AUC =", round(auc(roc_curve), 2)), col = "blue", cex = 1.5)
 ```
-
-
 
