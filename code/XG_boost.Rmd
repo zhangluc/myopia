@@ -28,6 +28,9 @@ my_data <- my_data %>%
 my_data <- my_data %>% 
   filter(AGE != 9)
 
+my_data$ID <- NULL
+my_data$STUDYYEAR <- NULL
+
 glimpse(my_data)
 
 ```
