@@ -14,9 +14,8 @@ library(tidyverse)
 library(caret)
 library(data.table)
 library(pROC)
-
-setwd("C:/Users/giang/OneDrive/Desktop/data_science_COSMOS/myopia")
-
+library(ggplot2)
+library(dplyr)
 ```
 
 ```{r}
@@ -34,7 +33,7 @@ glimpse(my_data)
 ```
 
 
-RANDOM FOREST ON XG BOOST
+XG BOOST
 ```{r}
 
 # Setting the seed for reproducibility
@@ -100,13 +99,66 @@ pred_labels <- ifelse(pred > 0.3, 1, 0)
 confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
 ```
 
+TREE MODEL
 ```{r}
+xgb.plot.tree(model = xgb_model, trees = 1)
+```
+
+
+FEATURE IMPORTANCE
+```{r}
+
 # Calculate feature importance
 importance <- xgb.importance(model = xgb_model)
 
 # Plot feature importance
 xgb.plot.importance(importance_matrix = importance)
+
 ```
+
+CONFUSION MATRIX HEATMAP
+```{r}
+# Predicted labels
+pred_labels <- ifelse(pred > 0.3, 1, 0)
+
+# Create confusion matrix
+cm <- confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
+
+# Extract confusion matrix as a table
+cm_table <- as.matrix(cm$table)
+
+# Convert to data frame for ggplot
+cm_df <- as.data.frame(cm_table)
+cm_df$predicted <- rownames(cm_table)
+cm_df <- gather(cm_df, actual, value, -predicted)
+
+# Ensure 'value' is treated as factor
+cm_df$value <- as.factor(cm_df$value)
+
+# Get unique levels of 'value'
+value_levels <- unique(cm_df$value)
+
+# Determine number of unique levels
+num_levels <- length(value_levels)
+
+# Define colors for the heatmap
+heat_colors <- colorRampPalette(c("lightblue", "darkblue"))(num_levels)
+
+# Plot confusion matrix as heatmap
+ggplot(cm_df, aes(x = actual, y = predicted, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = heat_colors,
+                    breaks = value_levels,
+                    labels = value_levels) +
+  labs(title = "Confusion Matrix Heatmap",
+       x = "Actual",
+       y = "Predicted") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
 
 BUILDING ROC CURVE 
 ```{r}
