@@ -1,0 +1,157 @@
+library(xgboost)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(pROC)
+library(ggplot2)
+library(dplyr)
+
+#load & clean data
+my_data <- read.csv("myopia_og.csv", head = TRUE, sep = ";")
+
+my_data <- my_data %>% 
+  mutate(MYOPIC = as.factor(MYOPIC))
+
+my_data <- my_data %>% 
+  filter(AGE != 9)
+
+my_data <- my_data[, !colnames(myopia)]
+
+
+glimpse(my_data)
+
+
+#XG BOOST
+
+# Setting the seed for reproducibility
+set.seed(0)
+
+# Split into training and testing sets
+my_trainIndex <- createDataPartition(my_data$MYOPIC, p = 0.8, list = FALSE)
+trainData <- my_data[my_trainIndex, ]
+testData <- my_data[-my_trainIndex, ]
+
+# Convert data.table to data.frame to avoid data.table-specific issues
+trainData <- as.data.frame(trainData)
+testData <- as.data.frame(testData)
+
+# Detect character columns and convert them to factors, then to numeric
+char_cols <- sapply(trainData, is.character)
+for (col in names(char_cols[char_cols])) {
+  trainData[[col]] <- as.numeric(as.factor(trainData[[col]]))
+  testData[[col]] <- as.numeric(as.factor(testData[[col]]))
+}
+
+# Ensure all columns are numeric. We use sapply to convert any residual non-numeric columns
+trainData <- as.data.frame(sapply(trainData, as.numeric))
+testData <- as.data.frame(sapply(testData, as.numeric))
+
+# Separate features and target
+trainLabel <- trainData$MYOPIC
+testLabel <- testData$MYOPIC
+trainData <- trainData[, setdiff(names(trainData), "MYOPIC")]
+testData <- testData[, setdiff(names(testData), "MYOPIC")]
+
+# Convert features to numeric matrices
+train_feats <- as.matrix(trainData)
+test_feats <- as.matrix(testData)
+
+# Convert to XGBoost DMatrix format
+dtrain <- xgb.DMatrix(data = train_feats, label = as.numeric(trainLabel) - 1)
+dtest <- xgb.DMatrix(data = test_feats, label = as.numeric(testLabel) - 1)
+
+params <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss",
+  max_depth = 6,  # Depth of the tree
+  eta = 0.3,      # Learning rate
+  nthread = 2
+)
+
+xgb_model <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = 100,  # Number of boosting rounds
+  watchlist = list(train = dtrain, test = dtest),
+  early_stopping_rounds = 10  # Early stopping if no improvement
+)
+
+# Predict on test data
+pred <- predict(xgb_model, newdata = dtest)
+
+# Convert probabilities to class labels
+pred_labels <- ifelse(pred > 0.3, 1, 0)
+# adjusting threshold in predictions to raise spec: pred_labels <- ifelse(pred > 0.3, 1, 0) 
+
+confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
+
+
+#TREE MODEL
+xgb.plot.tree(model = xgb_model, trees = 1)
+
+
+
+#FEATURE IMPORTANCE
+# Calculate feature importance
+importance <- xgb.importance(model = xgb_model)
+
+# Plot feature importance
+xgb.plot.importance(importance_matrix = importance)
+
+
+#CONFUSION MATRIX HEATMAP
+# Predicted labels
+pred_labels <- ifelse(pred > 0.3, 1, 0)
+
+# Create confusion matrix
+cm <- confusionMatrix(factor(pred_labels), factor(as.numeric(testLabel) - 1))
+
+# Extract confusion matrix as a table
+cm_table <- as.matrix(cm$table)
+
+# Convert to data frame for ggplot
+cm_df <- as.data.frame(cm_table)
+cm_df$predicted <- rownames(cm_table)
+cm_df <- gather(cm_df, actual, value, -predicted)
+
+# Ensure 'value' is treated as factor
+cm_df$value <- as.factor(cm_df$value)
+
+# Get unique levels of 'value'
+value_levels <- unique(cm_df$value)
+
+# Determine number of unique levels
+num_levels <- length(value_levels)
+
+# Define colors for the heatmap
+heat_colors <- colorRampPalette(c("lightblue", "darkblue"))(num_levels)
+
+# Plot confusion matrix as heatmap
+ggplot(cm_df, aes(x = actual, y = predicted, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = heat_colors,
+                    breaks = value_levels,
+                    labels = value_levels) +
+  labs(title = "Confusion Matrix Heatmap",
+       x = "Actual",
+       y = "Predicted") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+#BUILDING ROC CURVE 
+
+# Compute ROC curve
+roc_curve <- roc(testLabel, pred)
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for XGBoost Model", col = "blue", lwd = 2)
+
+# Add diagonal reference line (random classifier)
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+# Add AUC (Area Under the Curve) to the plot
+text(0.75, 0.2, paste("AUC =", round(auc(roc_curve), 2)), col = "blue", cex = 1.5)
+
+
